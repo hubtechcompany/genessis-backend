@@ -15,10 +15,25 @@ load_dotenv()
 # EMBEDDING MODEL
 # =========================================================
 
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
+# embeddings = HuggingFaceEmbeddings(
+#     model_name="sentence-transformers/all-MiniLM-L6-v2"
+# )
+from langchain_huggingface import HuggingFaceEmbeddings
 
+_embeddings = None
+
+
+def get_embeddings():
+
+    global _embeddings
+
+    if _embeddings is None:
+
+        _embeddings = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+
+    return _embeddings
 
 # =========================================================
 # GROQ
@@ -35,14 +50,30 @@ llm = ChatGroq(
 # VECTOR SEARCH
 # =========================================================
 
-def search_documents(
-    question: str,
-    limit: int = 5
-):
+# def search_documents(
+#     question: str,
+#     limit: int = 5
+# ):
 
-    question_embedding = (
-        embeddings.embed_query(question)
-    )
+#     question_embedding = (
+#         embeddings.embed_query(question)
+#     )
+
+#     response = supabase.rpc(
+#         "match_documents",
+#         {
+#             "query_embedding": question_embedding,
+#             "match_count": limit
+#         }
+#     ).execute()
+
+#     return response.data or []
+
+def search_documents(question: str, limit: int = 5):
+
+    embeddings = get_embeddings()
+
+    question_embedding = embeddings.embed_query(question)
 
     response = supabase.rpc(
         "match_documents",
@@ -52,7 +83,7 @@ def search_documents(
         }
     ).execute()
 
-    return response.data or []
+    return response.data
 
 
 # =========================================================
