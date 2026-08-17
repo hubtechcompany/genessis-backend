@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from conversations import router as conversation_router
 from chat import router as chat_router
+from database import supabase
 
 
 app = FastAPI(
@@ -40,7 +41,36 @@ app.include_router(
     chat_router
 )
 
+# ============================================================
+# DATABASE TEST
+# ============================================================
 
+@app.get("/test-db")
+def test_database():
+
+    try:
+
+        response = (
+            supabase
+            .table("conversations")
+            .select("*")
+            .limit(5)
+            .execute()
+        )
+
+        return {
+            "success": True,
+            "data": response.data
+        }
+
+    except Exception as e:
+
+        print("DATABASE ERROR:", repr(e))
+
+        return {
+            "success": False,
+            "error": str(e)
+        }
 # =========================================================
 # ROOT
 # =========================================================
