@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://genessis-frontend-6gdj59doy-hubtechcompanys-projects.vercel.app",
+        "https://genessis-frontend-azcq.vercel.app/",
     ],
     allow_credentials=True,
     allow_methods=["*"],
