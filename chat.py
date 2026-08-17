@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from uuid import UUID
 
 from database import supabase
 from rag import ask_question
@@ -8,95 +9,136 @@ from rag import ask_question
 router = APIRouter()
 
 
+# =========================================================
+# REQUEST MODEL
+# =========================================================
+
 class ChatRequest(BaseModel):
     conversation_id: str
     question: str
 
 
+# =========================================================
+# CHAT
+# =========================================================
+
 @router.post("/chat")
 def chat(request: ChatRequest):
 
-    # ------------------------------------------------
-    # 1. Check conversation
-    # ------------------------------------------------
+    # -----------------------------------------------------
+    # Validate conversation UUID
+    # -----------------------------------------------------
+
+    try:
+        conversation_id = UUID(request.conversation_id)
+
+    except ValueError:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid conversation_id. Expected a valid UUID."
+        )
+
+
+    # -----------------------------------------------------
+    # Check conversation exists
+    # -----------------------------------------------------
 
     conversation = (
         supabase
         .table("conversations")
-        .select("*")
-        .eq("id", request.conversation_id)
-        .single()
+        .select("id")
+        .eq("id", str(conversation_id))
+        .maybe_single()
         .execute()
     )
+
 
     if not conversation.data:
+
         raise HTTPException(
             status_code=404,
-            detail="Conversation not found"
+            detail="Conversation not found."
         )
 
-    # ------------------------------------------------
-    # 2. Save user message
-    # ------------------------------------------------
+
+    # -----------------------------------------------------
+    # Save user message
+    # -----------------------------------------------------
 
     supabase.table("messages").insert({
-        "conversation_id": request.conversation_id,
+
+        "conversation_id": str(conversation_id),
+
         "role": "user",
+
         "content": request.question
+
     }).execute()
 
-    # ------------------------------------------------
-    # 3. Get previous conversation messages
-    # ------------------------------------------------
 
-    history_response = (
-        supabase
-        .table("messages")
-        .select("role, content")
-        .eq(
-            "conversation_id",
-            request.conversation_id
+    # -----------------------------------------------------
+    # RAG
+    # -----------------------------------------------------
+
+    try:
+
+        result = ask_question(request.question)
+
+    except Exception as e:
+
+        print("RAG ERROR:", repr(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to generate AI answer."
         )
-        .order("created_at")
-        .execute()
-    )
 
-    history = history_response.data or []
-
-    # ------------------------------------------------
-    # 4. RAG
-    # ------------------------------------------------
-
-    result = ask_question(
-        request.question,
-        history=history
-    )
 
     answer = result["answer"]
 
-    # ------------------------------------------------
-    # 5. Save assistant message
-    # ------------------------------------------------
+    sources = result.get("sources", [])
+
+
+    # -----------------------------------------------------
+    # Save assistant message
+    # -----------------------------------------------------
 
     supabase.table("messages").insert({
-        "conversation_id": request.conversation_id,
+
+        "conversation_id": str(conversation_id),
+
         "role": "assistant",
+
         "content": answer
+
     }).execute()
 
-    # ------------------------------------------------
-    # 6. Update conversation
-    # ------------------------------------------------
+
+    # -----------------------------------------------------
+    # Update conversation
+    # -----------------------------------------------------
 
     supabase.table("conversations").update({
+
         "updated_at": "now()"
+
     }).eq(
         "id",
-        request.conversation_id
+        str(conversation_id)
     ).execute()
 
+
+    # -----------------------------------------------------
+    # Return
+    # -----------------------------------------------------
+
     return {
-        "conversation_id": request.conversation_id,
+
+        "conversation_id": str(conversation_id),
+
         "answer": answer,
-        "sources": result["sources"]
+
+        "sources": sources
+
     }
