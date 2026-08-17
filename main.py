@@ -21,6 +21,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://genessis-frontend-azcq.vercel.app",
+        "https://genessis-frontend-azcq-hubtechcompanys-projects.vercel.app?_vercel_share=11Dr7IVBxznTqN49dcRwuZtWlZp8qJFA"
     ],
     allow_credentials=True,
     allow_methods=["*"],
